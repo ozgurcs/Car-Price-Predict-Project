@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vehicle Price Estimator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center justify-start p-4 sm:p-6">
+  <header class="w-full max-w-6xl mb-6 text-center">
+    <h1 class="text-3xl font-bold text-blue-700">Vehicle Price Estimator</h1>
+    <p class="text-sm text-gray-600">Enter vehicle details to predict price and see best match.</p>
+  </header>
+
+  <main class="w-full max-w-6xl grid md:grid-cols-2 gap-4">
+    <section class="bg-white shadow rounded-xl p-6">
+      <h2 class="text-xl font-semibold mb-4">Vehicle Details</h2>
+      <form id="vehicleForm" class="flex flex-wrap items-end gap-4">
+        <!-- Brand -->
+        <div class="flex flex-col">
+          <label class="text-xs font-medium mb-1">Brand</label>
+          <input type="text" id="Brand" class="border rounded px-3 py-2 min-w-[120px]" placeholder="e.g. Toyota" required />
+        </div>
+        <!-- Year -->
+        <div class="flex flex-col">
+          <label class="text-xs font-medium mb-1">Year</label>
+          <input type="number" id="Year" class="border rounded px-3 py-2 w-[100px]" placeholder="e.g. 2020" required />
+        </div>
+        <!-- Model -->
+        <div class="flex flex-col">
+          <label class="text-xs font-medium mb-1">Model</label>
+          <input type="text" id="Model" class="border rounded px-3 py-2 min-w-[120px]" placeholder="e.g. Corolla" required />
+        </div>
+        <!-- Body Type -->
+        <div class="flex flex-col">
+          <label class="text-xs font-medium mb-1">Body Type</label>
+          <input type="text" id="BodyType" class="border rounded px-3 py-2 min-w-[120px]" placeholder="e.g. Sedan" required />
+        </div>
+        <!-- Transmission -->
+        <div class="flex flex-col">
+          <label class="text-xs font-medium mb-1">Transmission</label>
+          <input type="text" id="Transmission" class="border rounded px-3 py-2 min-w-[120px]" placeholder="e.g. Automatic" required />
+        </div>
+        <!-- Kilometres -->
+        <div class="flex flex-col">
+          <label class="text-xs font-medium mb-1">Kilometres</label>
+          <input type="number" id="Kilometres" class="border rounded px-3 py-2 w-[110px]" placeholder="e.g. 60000" required />
+        </div>
+        <!-- Engine -->
+        <div class="flex flex-col">
+          <label class="text-xs font-medium mb-1">Engine (L)</label>
+          <input type="number" step="0.1" id="Engine" class="border rounded px-3 py-2 w-[90px]" placeholder="e.g. 1.8" />
+        </div>
+        <!-- Fuel Type -->
+        <div class="flex flex-col">
+          <label class="text-xs font-medium mb-1">Fuel Type</label>
+          <input type="text" id="FuelType" class="border rounded px-3 py-2 min-w-[120px]" placeholder="e.g. Petrol" />
+        </div>
+        <button type="submit" class="bg-violet-600 hover:bg-violet-700 text-white font-semibold px-6 py-2 rounded-lg">Predict</button>
+      </form>
+    </section>
+
+    <section class="bg-white shadow rounded-xl p-6 flex flex-col">
+      <h2 class="text-xl font-semibold mb-4">Results</h2>
+      <div id="priceResult" class="text-2xl font-bold text-green-600 mb-4"></div>
+      <h3 class="font-semibold mb-2">Best Match</h3>
+      <div id="bestMatch" class="text-lg font-medium"></div>
+    </section>
+  </main>
+  <script>
+    const API_BASE = "/api";
+  
+    document.getElementById("vehicleForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+  
+      const data = {
+        Year:         +document.getElementById("Year").value,
+        Brand:        document.getElementById("Brand").value,
+        Model:        document.getElementById("Model").value,
+        BodyType:     document.getElementById("BodyType").value,
+        Transmission: document.getElementById("Transmission").value,
+        Kilometres:   +document.getElementById("Kilometres").value,
+        Engine:       document.getElementById("Engine").value
+                         ? +document.getElementById("Engine").value
+                         : null,
+        FuelType:     document.getElementById("FuelType").value || null
+      };
+  
+      // — Tahmin isteği —
+      try {
+        const pRes  = await fetch(`${API_BASE}/predict`, {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify(data)
+        });
+        const pJson = await pRes.json();
+        if (!pRes.ok) {
+          throw new Error(pJson.detail || "Tahmin sırasında bilinmeyen bir hata oldu");
+        }
+        document.getElementById("priceResult").textContent =
+          `≈ AUD ${pJson.predicted_price_aud.toFixed(0)}`;
+      } catch (err) {
+        document.getElementById("priceResult").textContent =
+          `Hata: ${err.message}`;
+      }
+  
+      // — En iyi eşleşmeyi göster —
+      try {
+        const bRes  = await fetch(`${API_BASE}/best`, {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify(data)
+        });
+        const bJson = await bRes.json();
+        if (!bRes.ok) {
+          throw new Error(bJson.detail || "En iyi eşleşme sorgusunda hata oldu");
+        }
+        const bm = bJson.best_vehicle;
+const bestMatchDiv = document.getElementById("bestMatch");
+bestMatchDiv.innerHTML = '';
+Object.entries(bm).forEach(([key, value]) => {
+  const row = document.createElement('div');
+  if (key === 'Price') {
+    row.textContent = `${key}: ≈ AUD ${value?.toFixed(0) || 'N/A'}`;
+  } else {
+    row.textContent = `${key}: ${value}`;
+  }
+  bestMatchDiv.appendChild(row);
+});
+      } catch (err) {
+        document.getElementById("bestMatch").textContent =
+          `Hata: ${err.message}`;
+      }
+    });
+  </script>
+</body>
+</html>
